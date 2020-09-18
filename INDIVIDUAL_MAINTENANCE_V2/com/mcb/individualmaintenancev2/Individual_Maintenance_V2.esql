@@ -1,0 +1,823 @@
+
+
+BROKER SCHEMA com.mcb.individualmaintenancev2
+PATH com.mcb.common,com.mcb.procedures,com.mcb.logging;
+DECLARE INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE SHARED ROW;
+DECLARE DB_AUDIT_Q,SCHEMANAME,T24SYSTEM,APPLICATION_IDENTIFIER,TIMETYPE,ROUTER_OUT_Q EXTERNAL CHARACTER '';
+DECLARE TIMECOUNT EXTERNAL INTEGER;
+DECLARE VERSION EXTERNAL DECIMAL;
+CREATE COMPUTE MODULE Individual_Maintenance_V2_T24Request
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL T24Request();
+		RETURN FALSE;
+	END;
+	CREATE PROCEDURE T24Request() BEGIN
+		DECLARE ns1 NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';
+		DECLARE schemaLocation NAMESPACE 'http://www.temenos.com/T24/OFSML/130 ../../xsd/ofsml.xsd';
+		DECLARE ns2 NAMESPACE 'http://www.temenos.com/T24/OFSML/130';
+		declare inputChar,outputChar CHARACTER;
+		SET Environment.Variables.correlationId = InputRoot.MQMD.CorrelId;
+		SET Environment.Variables.messageId = InputRoot.MQMD.MsgId;
+		DECLARE protocolType CHARACTER InputRoot.MQRFH2.usr.ESB_ReplyProtocol;
+		DECLARE outRefer REFERENCE TO OutputRoot;
+		SET inputChar = CAST(ASBITSTREAM(InputRoot.JSON) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+		DECLARE requestTime TIMESTAMP InputRoot.Properties.CreationTime;
+		CALL GenarateDBLogMessage(cast(Environment.Variables.correlationId as CHARACTER),'',requestTime,'Info','Misc',protocolType,'CUSTOMER_SERVICE_NON_INDIVIDUAL_MAINTENANCEV2','NON.INDIVIDUAL.MAINTENACE.V2',inputChar,outRefer);
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+		PROPAGATE TO TERMINAL 'out1';
+		DECLARE providerCredentials ROW;
+		DECLARE messageId,correlationId CHARACTER InputRoot.MQMD.CorrelId;
+		DECLARE I,K,J INTEGER 1;
+		CALL getProviderDetails();
+		set providerCredentials.values[] = SELECT P.system, P.endPoint ,P.username, P.password from INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.values[] as P WHERE P.system = T24SYSTEM;
+		DECLARE inpref REFERENCE TO InputRoot.JSON.Data.Individual_Maintenance_V2_Req;
+		SET Environment.MQMD = InputRoot.MQMD;
+		SET Environment.MQRFH2 = InputRoot.MQRFH2;
+		SET OutputRoot.MQMD.CorrelId= InputRoot.MQMD.CorrelId;
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration).(XMLNSC.Attribute)version = '1.0';
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration).(XMLNSC.Attribute)encoding = 'UTF-8';
+		SET OutputRoot.XMLNSC.ns2:T24.(XMLNSC.NamespaceDecl)xmlns:xsi = ns1;
+		SET OutputRoot.XMLNSC.ns2:T24.(XMLNSC.NamespaceDecl)"xsi:schemaLocation" = schemaLocation;
+		SET OutputRoot.XMLNSC.ns2:T24.(XMLNSC.NamespaceDecl)xmlns = ns2;
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:securityContext.ns2:userName =COALESCE(providerCredentials.values[1].username,'');
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:securityContext.ns2:password =COALESCE(providerCredentials.values[1].password,'');--'ESBUSER123'
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.(XMLNSC.Attribute)application = 'CTIF.INTERFACE.LOG.CUS.MCB';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.(XMLNSC.Attribute)version= 'V2.NEW.IND.CUS.ONB.MCB';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.(XMLNSC.Attribute)operation = 'PROCESS';
+		IF LENGTH(inpref.Inputter.Inputter_User_Id) > 0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INPUTTER.USER.ID';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = COALESCE(cast(inpref.Inputter.Inputter_User_Id as CHARACTER),'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Inputter.Inputter_User_Id) > 0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INPUTTER.BU.CODE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = COALESCE(cast(inpref.Inputter.Inputter_Bu_Code as CHARACTER),'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Auth_UserId) > 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'AUTHORISER.USER.ID';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(cast(inpref.Auth_UserId as CHARACTER),'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Requestor.Channel_Id) > 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'CHANNEL.ID';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Requestor.Channel_Id,'');
+			set J=J+1;
+		END If;
+		IF LENGTH(inpref.Requestor.Channel_Req_Id) > 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'CHANNEL.REQ.ID';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Requestor.Channel_Req_Id,'');
+			set J=J+1;
+		END If;
+		IF LENGTH(inpref.Product_Msg_Type.Product_Id) > 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'PRODUCT.ID';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Product_Msg_Type.Product_Id,'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Product_Msg_Type.Msg_Type) > 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'MSG.TYPE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Product_Msg_Type.Msg_Type,'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Posting_Mode) > 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'POSTING.MODE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Posting_Mode,'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Cust_No)>0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'CB.CUST.NO';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Cust_No,'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Obra_Info.Obra_Score_Mcb) > 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'OBRA.SCORE.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Obra_Info.Obra_Score_Mcb,'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Obra_Info.Obra_Comm_Mcb) > 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'OBRA.STATUS.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Obra_Info.Obra_Status_Mcb,'');
+			set J=J+1;
+		END IF;
+--		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'OBRA.SCORE.MCB';
+--		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Obra_Info.Obra_Score_Mcb,'');
+--		set J=J+1;
+		IF LENGTH(inpref.Tran_Data.Short_Name)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'SHORT.NAME';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Short_Name,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Trade_Name)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TRADE.NAME';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Trade_Name,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Narrative)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'NARRATIVE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Narrative,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Name.Title)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TITLE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Name.Title,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Name.Given_Names)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'GIVEN.NAMES';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Name.Given_Names,'');
+			SET J=J+1;
+		END IF;
+--		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'FAMILY.NAME';
+--		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Name.Family_Name,'');
+--		SET J=J+1;
+		IF LENGTH(inpref.Tran_Data.Name.Maiden_Name)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'MAIDEN.NAME';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Name.Maiden_Name,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Other.Date_Of_Birth)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'DATE.OF.BIRTH';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Other.Date_Of_Birth,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Other.Gender)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'GENDER';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Other.Gender,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Other.Marital_Status)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'MARITAL.STATUS.CODE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Other.Marital_Status,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Other.No_Of_Dependents)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'NO.OF.DEPENDENTS';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Other.No_Of_Dependents,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Other.Country_Birth)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'COUNTRY.BIRTH';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Other.Country_Birth,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Education_Level)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'EDUCAT.LEVEL.CODE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Education_Level,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Occupation_Info.Employed_By)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'EMPLOYED.BY.CODE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Occupation_Info.Employed_By,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Occupation_Info.Unemp_Details.Ue_Typ_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'UE.TYP.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Occupation_Info.Unemp_Details.Ue_Typ_Mcb,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Occupation_Info.Unemp_Details.Ue_Typ_Oth_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'UE.TYP.OTH.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Occupation_Info.Unemp_Details.Ue_Typ_Oth_Mcb,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Occupation_Info.Occupation.Job_Description)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'JOB.DESCRIPTION';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Occupation_Info.Occupation.Job_Description,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Occupation_Info.Occupation.Working_Contract)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'JOB.DESCRIPTION';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Occupation_Info.Occupation.Working_Contract,'');
+			SET J=J+1;
+		END IF;
+		DECLARE occaref REFERENCE to inpref.Tran_Data.Occupation_Info.Occupation.Occupations.Item[>];
+		WHILE LASTMOVE(occaref) DO
+			IF LENGTH(occaref.Occupation_Id)> 0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'OCCUPATION.ID';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(occaref.Occupation_Id,'');
+				set J=J+1;
+			END IF;
+			IF LENGTH(occaref.Employers_Buss)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'EMPLOYERS.BUSS.CODE';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(occaref.Employers_Buss,'');
+				set J=J+1;
+			END IF;
+			IF LENGTH(occaref.Employment.Employers_Name)> 0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'EMPLOYERS.NAME';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(occaref.Employment.Employers_Name,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(occaref.Employment.Employment_Start)> 0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'EMPLOYMENT.START';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(occaref.Employment.Employment_Start,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(occaref.Employment.Employment_Start)> 0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'EMPLOYMENT.START';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(occaref.Employment.Employment_Start,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(occaref.Employment.Income_Info.Salary_Date_Freq)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'SALARY.DATE.FREQ';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(occaref.Employment.Income_Info.Salary_Date_Freq,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(occaref.Employment.Income_Info.Customer_Currency)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'CUSTOMER.CURRENCY';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(occaref.Employment.Income_Info.Customer_Currency,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(occaref.Employment.Income_Info.Salary)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'SALARY';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(occaref.Employment.Income_Info.Salary,'');
+				SET J= J+1;
+			END IF;
+			SET I=I+1;
+			MOVE occaref NEXTSIBLING;
+		END WHILE;
+		IF LENGTH(inpref.Tran_Data.Source_Of_Income_Info.Pur_Of_Rel_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'PUR.OF.REL.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Source_Of_Income_Info.Pur_Of_Rel_Mcb,'');
+			SET J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Source_Of_Income_Info.Pur_Rel_Desc_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'PUR.RELDESC.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Source_Of_Income_Info.Pur_Rel_Desc_Mcb,'');
+			SET J=J+1;
+		END IF;
+		DECLARE IncRef REFERENCE TO inpref.Tran_Data.Source_Of_Income_Info.Src_Of_Incomes.Item[>];
+		SET I=1;
+		WHILE LASTMOVE(IncRef) DO
+			IF LENGTH(IncRef.Income_Src_Mcb)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INCOME.SRC.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(IncRef.Income_Src_Mcb,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(IncRef.Income_Oth_Mcb)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INCOME.OTH.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(IncRef.Income_Oth_Mcb,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(IncRef.Income_Ccy_Mcb)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INCOME.CCY.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(IncRef.Income_Ccy_Mcb,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(IncRef.Income_Amt_Mcb)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INCOME.AMT.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(IncRef.Income_Amt_Mcb,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(IncRef.Income_Fqu_Mcb)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INCOME.FQU.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(IncRef.Income_Fqu_Mcb,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(IncRef.Income_End_Mcb)>0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INCOME.END.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(IncRef.Income_End_Mcb,'');
+				SET J= J+1;
+			END IF;
+			SET I=I+1;
+			MOVE IncRef NEXTSIBLING;
+		END WHILE;
+--			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'CUSTOMER.STATUS';
+--			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = '';--coalesce(inpref.Tran_Data.Cust_Status_Info.Is_Kyced,'');
+--			SET J=J+1;
+		SET I=1;
+		IF LENGTH(inpref.Tran_Data.Cust_Status_Info.Is_Kyced)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'IS.KYC';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Cust_Status_Info.Is_Kyced,'');
+			SET J= J+1;
+		END IF;
+		DECLARE TranRef REFERENCE TO inpref.Tran_Data.Cust_Status_Info.Info_Markers.Item[>];
+		WHILE LASTMOVE(TranRef) DO
+			IF LENGTH(TranRef.Cu_Info_Marker)> 0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'CU.INFO.MARKER';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(TranRef.Cu_Info_Marker,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(TranRef.Cu_Info_Comment)> 0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'CU.INFO.MARKER';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(TranRef.Cu_Info_Comment,'');
+				SET J= J+1;
+			END IF;
+			IF LENGTH(TranRef.Info_End_Date)> 0 THEN
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'INFO.END.DATE';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(TranRef.Info_End_Date,'');
+				SET J= J+1;
+			END IF;
+			SET I=I+1;
+			MOVE TranRef NEXTSIBLING;
+		END WHILE;
+		set I=1;
+		IF LENGTH(inpref.Tran_Data.Contact_Info.Language)> 0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'LANGUAGE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Contact_Info.Language,'');
+			SET J= J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Contact_Info.Comm_Channel)> 0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'COMM.CHANNEL';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Contact_Info.Comm_Channel,'');
+			SET J= J+1;
+		END IF;
+
+		DECLARE phoneref REFERENCE to inpref.Tran_Data.Contact_Info.Phones.Item[>];
+		while LASTMOVE(phoneref) DO
+			if LENGTH(phoneref.Phone_1)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'PHONE.HOME';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(phoneref.Phone_1,'');
+				set J=J+1;
+			END If;
+			set I=I+1;
+			move phoneref NEXTSIBLING;
+		END WHILE;
+		set I=1;
+		DECLARE offphnref REFERENCE to inpref.Tran_Data.Contact_Info.Off_Phones.Item[>];
+		while LASTMOVE(offphnref) DO
+			if LENGTH(offphnref.Off_Phone)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'PHONE.OFF';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(offphnref.Off_Phone,'');
+				set J=J+1;
+			END if;
+			set I=I+1;
+			move offphnref NEXTSIBLING;
+		END WHILE;
+		set I=1;
+		DECLARE Faxref REFERENCE to inpref.Tran_Data.Contact_Info.Faxes.Item[>];
+		while LASTMOVE(Faxref) DO
+			if LENGTH(Faxref.Fax_1)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'FAX.1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(Faxref.Fax_1,'');
+				set J=J+1;
+			end if;
+			set I=I+1;
+			move Faxref NEXTSIBLING;
+		END WHILE;
+		set I=1;
+		if LENGTH(inpref.Tran_Data.Contact_Info.Sms.Mobile_Operator)>0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'MOBILE.OPERATOR';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Contact_Info.Sms.Mobile_Operator,'');
+			set J=J+1;
+		END IF;
+		DECLARE smsref REFERENCE to inpref.Tran_Data.Contact_Info.Sms.Smses.Item[>];
+		while LASTMOVE(smsref) DO
+			if LENGTH(smsref.Sms_1)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'SMS.1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(smsref.Sms_1,'');
+				set J=J+1;
+			END IF;
+			set I=I+1;
+			move smsref NEXTSIBLING;
+		END WHILE;
+		set I=1;
+		DECLARE emailref REFERENCE to inpref.Tran_Data.Contact_Info.Emails.Item[>];
+		while LASTMOVE(emailref) DO
+			if LENGTH(emailref.Email_1)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'EMAIL';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(emailref.Email_1,'');
+				set J=J+1;
+			END IF;
+			set I=I+1;
+			move emailref NEXTSIBLING;
+		END WHILE;
+		set I=1;
+		set I=1;
+		DECLARE legalref REFERENCE to inpref.Tran_Data.Legal_Infos.Item[>];
+		while LASTMOVE(legalref) DO
+			if LENGTH(legalref.Legal_Id)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'LEGAL.ID';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(legalref.Legal_Id,'');
+				SET J=J+1;
+			end if;
+			if LENGTH(legalref.Legal_Doc)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'LEGAL.DOC';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(legalref.Legal_Doc,'');
+				SET J=J+1;
+			END if;
+			if LENGTH(legalref.Legal_Iss_Auth)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'LEGAL.ISS.AUTH';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(legalref.Legal_Iss_Auth,'');
+				SET J=J+1;
+			end if;
+			if LENGTH(legalref.Legal_Iss_Date)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'LEGAL.ISS.DATE';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(legalref.Legal_Iss_Date,'');
+				SET J=J+1;
+			END if;
+			if LENGTH(legalref.Legal_Exp_Date)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'LEGAL.EXP.DATE';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(legalref.Legal_Exp_Date,'');
+				set J=J+1;
+			end if;
+			set I=I+1;
+			move legalref NEXTSIBLING;
+		END WHILE;
+		set I=1;
+		IF LENGTH(inpref.Tran_Data.Customer_Segment_Info.Target)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TARGET';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Customer_Segment_Info.Target,'');
+			set J=J+1;
+		END IF;
+		IF LENGTH(inpref.Tran_Data.Country_Info.Nationality_Info.Nationality)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TARGET';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Country_Info.Nationality_Info.Nationality,'');
+			set J=J+1;
+		END IF;
+		DECLARE NationRef REFERENCE TO inpref.Tran_Data.Country_Info.Nationality_Info.Other_Nationalities.Item[>];
+		WHILE LASTMOVE(NationRef) DO
+			if LENGTH(NationRef.Other_Nationality)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'OTHER.NATIONALITY';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(NationRef.Other_Nationality,'');
+				set J=J+1;
+			end if;
+			set I=I+1;
+			move NationRef NEXTSIBLING;
+		END WHILE;
+		SET I=1;
+		IF LENGTH(inpref.Tran_Data.Country_Info.Residence_Info.Residence)> 0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'RESIDENCE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Country_Info.Residence_Info.Residence,'');
+			set J=J+1;
+		end if;
+		IF LENGTH(inpref.Tran_Data.Country_Info.Residence_Info.Residence_Since_Date)> 0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'RESIDENCE.SINCE.DATE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Country_Info.Residence_Info.Residence_Since_Date,'');
+			set J=J+1;
+		end if;
+		IF LENGTH(inpref.Tran_Data.Country_Info.Permit_Info.Work_Pmtflg_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'WORK.PMTFLG.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Country_Info.Permit_Info.Work_Pmtflg_Mcb,'');
+			set J=J+1;
+		end if;
+		IF LENGTH(inpref.Tran_Data.Country_Info.Permit_Info.Permit_Details.Permit_Ref_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'PERMIT.REF.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Country_Info.Permit_Info.Permit_Details.Permit_Ref_Mcb,'');
+			set J=J+1;
+		end if;
+		IF LENGTH(inpref.Tran_Data.Country_Info.Permit_Info.Permit_Details.Work_Pmtnat_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'WORK.PMTNAT.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Country_Info.Permit_Info.Permit_Details.Work_Pmtnat_Mcb,'');
+			set J=J+1;
+		end if;
+		IF LENGTH(inpref.Tran_Data.Country_Info.Permit_Info.Permit_Details.Work_Pmtst_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'WORK.PMTST.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Country_Info.Permit_Info.Work_Pmtst_Mcb,'');
+			set J=J+1;
+		end if;
+		IF LENGTH(inpref.Tran_Data.Country_Info.Permit_Info.Permit_Details.Work_Pmtexp_Mcb)>0 THEN
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'WORK.PMTEXP.MCB';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Country_Info.Permit_Info.Work_Pmtexp_Mcb,'');
+			set J=J+1;
+		end if;
+		set I=1;
+		DECLARE Taxref REFERENCE to inpref.Tran_Data.Tax_Regimes.Item[>];
+		while LASTMOVE(Taxref) DO
+			if length(Taxref.Country_Tax_Mcb)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'COUNTRY.TAX.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(Taxref.Country_Tax_Mcb,'');
+				set J=J+1;
+			END IF;
+			if LENGTH(Taxref.Recalcitrant_Mcb)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'RECALCITRANT.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(Taxref.Recalcitrant_Mcb,'');
+				set J=J+1;
+			end if;
+			if LENGTH(Taxref.Tax_Class_Mcb)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TAX.CLASS.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(Taxref.Tax_Class_Mcb,'');
+				set J=J+1;
+			end if;
+			if LENGTH(Taxref.Tax_Report_Mcb)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TAX.REPORT.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(Taxref.Tax_Report_Mcb,'');
+				set J=J+1;
+			END if;
+			if LENGTH(Taxref.Tax_Number_Mcb)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TAX.NUMBER.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(Taxref.Tax_Number_Mcb,'');
+				set J=J+1;
+			END if;
+			if LENGTH(Taxref.Taxable_Mcb)>0 then
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)mv = I;
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TAXABLE.MCB';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)sv = '1';
+				SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(Taxref.Taxable_Mcb,'');
+				set J=J+1;
+			END if;
+			set I=I+1;
+			move Taxref NEXTSIBLING;
+		END WHILE;
+		if LENGTH(inpref.Tran_Data.Kyc_Address.Street_Addr)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'STREET.ADDR';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Kyc_Address.Street_Addr,'');
+			set J=J+1;
+		END if;
+		if LENGTH(inpref.Tran_Data.Kyc_Address.Address_Line2)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'ADDRESS.LINE2';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Kyc_Address.Address_Line2,'');
+			set J=J+1;
+		END if;
+		if LENGTH(inpref.Tran_Data.Kyc_Address.Address_Line3)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'ADDRESS.LINE3';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Kyc_Address.Address_Line3,'');
+			set J=J+1;
+		END if;
+		if LENGTH(inpref.Tran_Data.Kyc_Address.Town_Countrty)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'TOWN.COUNTRY';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Kyc_Address.Town_Countrty,'');
+			set J=J+1;
+		END if;
+		if LENGTH(inpref.Tran_Data.Kyc_Address.Post_Code)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'POST.CODE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Kyc_Address.Post_Code,'');
+			set J=J+1;
+		END if;
+		if LENGTH(inpref.Tran_Data.Kyc_Address.Country_Code)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'COUNTRY.CODE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Kyc_Address.Country_Code,'');
+			set J=J+1;
+		END if;
+		if LENGTH(inpref.Tran_Data.Kyc_Address.Despatch_Code)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'DESPATCH.CODE';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Kyc_Address.Despatch_Code,'');
+			set J=J+1;
+		END if;
+		if LENGTH(inpref.Tran_Data.Bank_Officers.Ao_Sign_On)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'AO.SIGN.ON';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Bank_Officers.Ao_Sign_On,'');
+			set J=J+1;
+		END if;
+		if LENGTH(inpref.Tran_Data.Bank_Officers.Alt.Ao_Sign_On)> 0 then
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J].(XMLNSC.Attribute)name = 'ALT.AO.SIGN.ON';
+			SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsTransactionInput.ns2:field[J] = coalesce(inpref.Tran_Data.Bank_Officers.Alt_Ao_Sign_On,'');
+			set J=J+1;
+		END if;
+		set outputChar = cast(ASBITSTREAM(OutputRoot.XMLNSC) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+		SET Environment.outData = OutputRoot;
+		SET OutputRoot.XMLNSC = NULL;
+		CALL GenarateDBLogMessage(correlationId,'',CURRENT_TIMESTAMP,'Info','Payment',Environment.replyProtocol,'INDIVIDUAL_MAINTENANCE_V2','T24_REQUEST_Q',outputChar,outRefer);
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+		PROPAGATE TO TERMINAL 'out1';
+		SET OutputRoot = Environment.outData;
+		SET Environment.XMLNSC =NULL;
+		PROPAGATE TO TERMINAL 'out' ;
+	END;
+END MODULE;
+CREATE PROCEDURE getProviderDetails( )
+BEGIN
+	IF EXISTS(INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.values[]) AND EXTRACT(DAY FROM INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.timeData) = EXTRACT(DAY FROM CURRENT_TIMESTAMP) THEN
+		CASE TIMETYPE			
+			
+			
+
+
+		WHEN 'HOUR' THEN
+			IF EXTRACT(HOUR FROM CURRENT_TIMESTAMP) - EXTRACT(HOUR FROM INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.timeData)>TIMECOUNT THEN
+				CALL RetrieveServiceProviderCredentials(COALESCE(APPLICATION_IDENTIFIER,''),VERSION,FALSE,INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.values[]) IN Database.SCHEMANAME;
+				SET INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.timeData = CURRENT_TIMESTAMP;
+			END IF;
+		WHEN 'MINUTE' THEN
+			IF EXTRACT(MINUTE FROM CURRENT_TIMESTAMP) - EXTRACT(MINUTE FROM INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.timeData) > TIMECOUNT THEN
+				CALL RetrieveServiceProviderCredentials(COALESCE(APPLICATION_IDENTIFIER,''),VERSION,FALSE,INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.values[]) IN Database.SCHEMANAME;
+				SET INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.timeData = CURRENT_TIMESTAMP;
+			END IF;
+		END CASE;
+	ELSE
+		CALL RetrieveServiceProviderCredentials(COALESCE(APPLICATION_IDENTIFIER,''),VERSION,FALSE,INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.values[]) IN Database.SCHEMANAME;
+		SET INDIVIDUAL_MAINTENANCE_V2_PROV_CACHE.Data.timeData = CURRENT_TIMESTAMP;
+	END IF;
+END;
+
+CREATE COMPUTE MODULE Individual_Maintenance_V2_T24_response
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		CALL T24Response();
+		RETURN FALSE;
+	END;
+	CREATE PROCEDURE T24Response() BEGIN
+		DECLARE ns1 NAMESPACE 'http://www.temenos.com/T24/OFSML/130';
+		DECLARE inputChar,OutputChar CHARACTER '';
+		DECLARE inpRef REFERENCE TO InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionProcessed;
+		SET OutputRoot.MQMD.CorrelId = COALESCE(Environment.correlationId,InputRoot.MQMD.CorrelId);
+		SET OutputRoot.MQRFH2 = COALESCE(Environment.MQRFH2,InputRoot.MQRFH2);
+		DECLARE outRefer REFERENCE TO OutputRoot;
+		DECLARE requestTime TIMESTAMP InputRoot.Properties.CreationTime;
+		DECLARE correlationId,messageId,replyProtocol CHARACTER;
+		SET messageId = COALESCE(Environment.msgId,InputRoot.MQMD.CorrelId);
+		SET replyProtocol = COALESCE(Environment.replyProtocol,InputRoot.MQRFH2.usr.ESB_ReplyProtocol);
+		set correlationId = COALESCE(Environment.correlationId,InputRoot.MQMD.CorrelId);
+		CASE
+			--Handling exception
+		WHEN EXISTS(InputExceptionList.*[]) THEN
+			IF CONTAINS(Environment.variable.exceptiondesc,'ParserException') THEN
+				SET OutputChar = 'Invalid input request data';
+			ELSE
+				SET OutputChar=CAST(ASBITSTREAM(InputRoot.JSON) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+			END IF;
+
+			CALL GenarateDBLogMessage(correlationId,'',requestTime,'Error','Payment',replyProtocol,'GET.CUSTOMER.CREDIT.SCORING','CUSTOMER.CREDIT.SCORING',inputChar,outRefer);
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+			PROPAGATE TO TERMINAL 'out';
+			CALL GenarateDBLogMessage(correlationId,'',requestTime,'Error','Account',replyProtocol,'CUSTOMER_CREDIT_SCORING','CUSTOMER.CREDIT.SCORING.V2',Environment.variable.exceptiondesc,outRefer);
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+			PROPAGATE TO TERMINAL 'out';
+			IF EXISTS(Environment.MQRFH2[]) THEN
+				SET OutputRoot.MQMD = Environment.MQMD;
+				SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+			ELSE
+				SET OutputRoot.MQMD = InputRoot.MQMD;
+				SET OutputRoot.MQRFH2 = InputRoot.MQRFH2;
+			END IF;
+			SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '-100';
+			SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = COALESCE(Environment.variable.exceptiondesc,'Internal Error Occured');
+			SET OutputRoot.JSON.Data.ResponseData.Exception.Code ='';
+			SET OutputRoot.JSON.Data.ResponseData.Exception.Msg = '';
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = ROUTER_OUT_Q;
+			PROPAGATE TO TERMINAL 'out' DELETE NONE;
+		WHEN EXISTS(InputRoot.XMLNSC[]) THEN
+			IF EXISTS(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionProcessed[]) THEN
+				SET inputChar=CAST(ASBITSTREAM(InputRoot.XMLNSC) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+				CALL GenarateDBLogMessage(correlationId,'',requestTime,'Info','Payment',replyProtocol,'MCB_CUSTOMER_SERVICE_NON_INDIVIDUAL_MAINTENANCE_V2','Get_T24_Response',inputChar,outRefer);
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+				PROPAGATE TO TERMINAL 'out';
+				DECLARE inref REFERENCE TO InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionProcessed.ns1:field[>];
+				DECLARE fieldCount INTEGER 0;
+				SET fieldCount = CARDINALITY(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionProcessed.ns1:field[]);
+				DECLARE K,M INTEGER 1;
+				DECLARE xmlRow ROW;
+				WHILE M <=fieldCount DO
+					SET K = CAST(COALESCE(inref.(XMLNSC.Attribute)mv,1) AS CHARACTER);
+					IF K = 1 THEN
+						SET xmlRow.XMLNSC.root.{FIELDVALUE(inref.(XMLNSC.Attribute)name)} = cast(COALESCE(inref,'') as CHARACTER);
+
+					ELSE
+						SET xmlRow.XMLNSC.root.{FIELDVALUE(inref.(XMLNSC.Attribute)name)}[K] = CAST(COALESCE(inref,'') AS CHARACTER);
+					END IF;
+					SET M = M+1;
+					MOVE inref NEXTSIBLING;
+				END WHILE;
+				IF EXISTS(Environment.MQRFH2[]) THEN
+					SET OutputRoot.MQMD = Environment.MQMD;
+					SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+				ELSE
+					SET OutputRoot.MQMD = InputRoot.MQMD;
+					SET OutputRoot.MQRFH2 = InputRoot.MQRFH2;
+				END IF;
+				SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode =COALESCE(xmlRow.XMLNSC.root."RETURN.CODE",'0');
+				SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = COALESCE(xmlRow.XMLNSC.root."ERROR.MSG",'');
+				SET OutputRoot.JSON.Data.ResponseData.Exception.Code =xmlRow.XMLNSC.root."VAL.ERR.CODE";
+				SET OutputRoot.JSON.Data.ResponseData.Exception.Msg = COALESCE(xmlRow.XMLNSC.root."VAL.ERR.MSG",'');
+				set OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.OFS_Response_Code = COALESCE(xmlRow.XMLNSC.root."CUS.OFS.RESP.CODE",'');
+				SET OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.Id = InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionProcessed.ns1:transactionId;
+				SET OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.Record_Status = InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionProcessed.(XMLNSC.Attribute)processingStatus;
+				SET OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.Tran.Tran_ID = xmlRow.XMLNSC.root."CUS.ID";
+				SET OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.Tran.Tran_Record_Status = xmlRow.XMLNSC.root."CUS.RECORD.STATUS";
+				DECLARE fieldRef REFERENCE TO inpRef.ns1:field[>];
+				DECLARE I,J,L INTEGER 1;
+				DECLARE overridIdCount,overrideFlagCount,overrideCount INTEGER 0;
+				DECLARE rowDataRef REFERENCE TO xmlRow.XMLNSC.root;
+				CREATE FIELD OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.Tran.Tran_Overrides IDENTITY (JSON.Array)Tran_Overrides;
+				DECLARE arrayData,overrideData ROW;
+				DECLARE arrayDataRef REFERENCE TO arrayData;
+				CALL setArrayData(rowDataRef,'OVERRIDE.ID','Override_Id',arrayDataRef);
+				CALL setArrayData(rowDataRef,'OVERRIDE.TEXT','Override',arrayDataRef);
+				CALL setArrayData(rowDataRef,'OVERRIDE.FLAG','Override_Flag',arrayDataRef);
+				set OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.Tran.Tran_Overrides.Item[] = arrayDataRef.details[];
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = ROUTER_OUT_Q;
+				PROPAGATE TO TERMINAL 'out' DELETE NONE;
+			ELSEIF EXISTS(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionFailed[]) THEN
+				SET OutputRoot.MQMD = Environment.MQMD;
+				SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+				SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '-1';
+				DECLARE ErrorData CHARACTER '';
+				IF EXISTS(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionFailed.ns1:error[]) THEN
+					DECLARE errorRef REFERENCE TO InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionFailed.ns1:error[>];
+					DECLARE I INTEGER 1;
+					WHILE LASTMOVE(errorRef) DO
+						IF I=1 THEN
+							SET ErrorData = COALESCE(errorRef,'');
+						ELSE
+
+							SET ErrorData = COALESCE(ErrorData,'')||','|| COALESCE(errorRef,'');
+						END IF;
+						SET I=I+1;
+						MOVE errorRef NEXTSIBLING;
+					END WHILE;
+				ELSE
+					SET ErrorData = COALESCE(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionFailed.ns1:errorDescription,'T24 Failure Response');
+				END IF;
+				SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = ErrorData;
+				SET OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.OFS_Response_Code ='-1';
+				CREATE FIELD OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.OFS_Errors IDENTITY (JSON.Array)OFS_Errors;
+				SET OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.OFS_Errors.Item[1].OFS_Error_Message =ErrorData;
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = ROUTER_OUT_Q;
+				PROPAGATE TO TERMINAL 'out' DELETE NONE;
+			ELSE
+				SET OutputRoot.MQMD = Environment.MQMD;
+				SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+				SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '-1';
+				SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = COALESCE(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsFault.ns1:ofsFaultMessage,'T24 Failure Response');
+				SET OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.OFS_Response_Code = COALESCE(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsFault.ns1:ofsFaultCode,'-1');
+				CREATE FIELD OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.OFS_Errors IDENTITY (JSON.Array)OFS_Errors;
+				SET OutputRoot.JSON.Data.ResponseData.Individual_Maintenance_V2_Resp.OFS_Errors.Item[1].OFS_Error_Message = COALESCE(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsFault.ns1:ofsFaultMessage,'T24 Failure Response');
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = ROUTER_OUT_Q;
+				PROPAGATE TO TERMINAL 'out' DELETE NONE;
+			END IF;
+		ELSE
+			SET OutputRoot.MQMD = Environment.MQMD;
+			SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+			SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '-1';
+			SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = 'Timeout Occured';
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = ROUTER_OUT_Q;
+			PROPAGATE TO TERMINAL 'out' DELETE NONE;
+		END CASE;
+		SET OutputChar = CAST(ASBITSTREAM(OutputRoot.JSON) AS CHARACTER CCSID COALESCE(InputRoot.Properties.CodedCharSetId,437) ENCODING COALESCE(InputRoot.Properties.Encoding,546));
+		SET OutputRoot.JSON = NULL;
+		/*LOGGING*/
+		CALL GenarateDBLogMessage(correlationId,'',CURRENT_TIMESTAMP,'Info','Payment',replyProtocol,'MCB_Customer_Service_Non_Individual_V2','PAYMENT.ROUTING.OUT',OutputChar,outRefer);
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+		PROPAGATE TO TERMINAL 'out';
+	END;
+END MODULE;
+CREATE PROCEDURE setArrayData(IN inpData REFERENCE,in arrayTag CHARACTER,IN outTag CHARACTER,INOUT outData REFERENCE )
+BEGIN
+	DECLARE I INTEGER CARDINALITY(inpData.{arrayTag}[]);
+	DECLARE J INTEGER 1;
+	WHILE J <=I DO
+		SET outData.details[J].{outTag} = COALESCE(inpData.{arrayTag}[J],'');
+		SET J= J+1;
+	END WHILE;
+	SET J=1;
+	SET I=0;
+END;

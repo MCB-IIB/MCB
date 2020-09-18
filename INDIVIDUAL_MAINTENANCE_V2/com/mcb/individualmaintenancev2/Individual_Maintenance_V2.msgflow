@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFlowOrder.msgnode="ComIbmFlowOrder.msgnode" xmlns:ComIbmMQGet.msgnode="ComIbmMQGet.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmTryCatch.msgnode="ComIbmTryCatch.msgnode" xmlns:com_mcb_common_Exception_Hadler_Common.subflow="com/mcb/common/Exception_Hadler_Common.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore"
+    xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/mcb/individualmaintenancev2/Individual_Maintenance_V2.msgflow" nsPrefix="com_mcb_individualmaintenancev2_Individual_Maintenance_V2.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.TIMECOUNT" name="TIMECOUNT" defaultValueLiteral="8">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EInt"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.APPLICATION_IDENTIFIER" name="APPLICATION_IDENTIFIER" defaultValueLiteral="INDIVIDUAL_MAINTENANCE_V2">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.T24SYSTEM" name="T24SYSTEM" defaultValueLiteral="t24">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.SCHEMANAME" name="SCHEMANAME" defaultValueLiteral="acedb">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.DB_AUDIT_Q" name="DB_AUDIT_Q" defaultValueLiteral="DB_AUDIT_Q">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.TIMETYPE" name="TIMETYPE" defaultValueLiteral="HOUR">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.VERSION" name="VERSION" defaultValueLiteral="2.0">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EDouble"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.ROUTER_OUT_Q" name="ROUTER_OUT_Q" defaultValueLiteral="CUST.ROUTING.OUT">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <translation xmi:type="utility:TranslatableString" key="Individual_Maintenance_V2" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/INDIVIDUAL_MAINTENANCE_V2/icons/full/obj16/Individual_Maintenance_V2.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/INDIVIDUAL_MAINTENANCE_V2/icons/full/obj30/Individual_Maintenance_V2.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmTryCatch.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="163,94">
+        <translation xmi:type="utility:ConstantString" string="Try Catch"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQGet.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="476,99" queueName="T24.DEV.OUT" connection="CLIENT" destinationQueueManagerName="T24_ACE.QM" queueManagerHostname="10.120.2.2" listenerPortNumber="61004" channelName="T24_ACE.SVRCONN" messageDomainProperty="XMLNSC" waitInterval="20000" getWithCorrelID="true">
+        <translation xmi:type="utility:ConstantString" string="T24_RESP_Q"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="624,94" dataSource="acedb" computeExpression="esql://routine/com.mcb.individualmaintenancev2#Individual_Maintenance_V2_T24_response.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="T24Response"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="251,95" dataSource="acedb" computeExpression="esql://routine/com.mcb.individualmaintenancev2#Individual_Maintenance_V2_T24Request.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="T24Request"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFlowOrder.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="211,214">
+        <translation xmi:type="utility:ConstantString" string="Flow Order"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="649,186" queueName="CUST.ROUTING.OUT" destinationMode="list">
+        <translation xmi:type="utility:ConstantString" string="CUST.ROUTING.OUT"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="369,95" queueName="T24.DEV.IN" connection="CLIENT" destinationQueueManagerName="T24_ACE.QM" queueManagerHostname="10.120.2.2" listenerPortNumber="61004" channelName="T24_ACE.SVRCONN">
+        <translation xmi:type="utility:ConstantString" string="T24_REQ_Q"/>
+      </nodes>
+      <nodes xmi:type="com_mcb_common_Exception_Hadler_Common.subflow:FCMComposite_1" xmi:id="FCMComposite_1_8" location="464,214">
+        <translation xmi:type="utility:ConstantString" string="Exception_Hadler_Common"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="6,134" queueName="INDIVIDUAL.MAINTENANCE.V2.IN" messageDomainProperty="JSON" transactionMode="no">
+        <translation xmi:type="utility:ConstantString" string="INDIVIDUAL.MAINTENANCE.V2.IN"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.second" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.first" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.try" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.noMessage" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer>
+      <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.TIMECOUNT">
+        <propertyName xmi:type="utility:TranslatableString" key="Property.TIMECOUNT" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+        <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.APPLICATION_IDENTIFIER">
+          <propertyName xmi:type="utility:TranslatableString" key="Property.APPLICATION_IDENTIFIER" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+          <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.T24SYSTEM">
+            <propertyName xmi:type="utility:TranslatableString" key="Property.T24SYSTEM" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+            <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.SCHEMANAME">
+              <propertyName xmi:type="utility:TranslatableString" key="Property.SCHEMANAME" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+              <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.DB_AUDIT_Q">
+                <propertyName xmi:type="utility:TranslatableString" key="Property.DB_AUDIT_Q" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+                <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.TIMETYPE">
+                  <propertyName xmi:type="utility:TranslatableString" key="Property.TIMETYPE" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+                  <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.VERSION">
+                    <propertyName xmi:type="utility:TranslatableString" key="Property.VERSION" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+                    <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.ROUTER_OUT_Q">
+                      <propertyName xmi:type="utility:TranslatableString" key="Property.ROUTER_OUT_Q" bundleName="com/mcb/individualmaintenancev2/Individual_Maintenance_V2" pluginId="INDIVIDUAL_MAINTENANCE_V2"/>
+                    </propertyDescriptor>
+                  </propertyDescriptor>
+                </propertyDescriptor>
+              </propertyDescriptor>
+            </propertyDescriptor>
+          </propertyDescriptor>
+        </propertyDescriptor>
+      </propertyDescriptor>
+    </propertyOrganizer>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>
