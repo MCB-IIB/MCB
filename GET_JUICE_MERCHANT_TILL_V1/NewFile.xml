@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<T24 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.temenos.com/T24/OFSML/130"
+	xsi:schemaLocation="http://www.temenos.com/T24/OFSML/130 ofsml13.xsd">
+	<serviceRequest>
+		<securityContext>
+			<company>MU0010001</company>
+			<userName>ESBUSR</userName>
+			<password>ESBUSER123</password>
+		</securityContext>
+		<ofsStandardEnquiry name="E.GET.MERC.TILL.V1.MCB"
+			responseType="STANDARD-OFSML">
+			<selectionCriteria operand="EQ">
+				<fieldName>CHANNEL.ID</fieldName>
+				<value>JUICE.PER</value>
+			</selectionCriteria>
+			<selectionCriteria operand="EQ">
+				<fieldName>MOBILE.NUMBER</fieldName>
+				<value>59823588</value>
+			</selectionCriteria>
+		</ofsStandardEnquiry>
+	</serviceRequest>
+</T24>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFlowOrder.msgnode="ComIbmFlowOrder.msgnode" xmlns:ComIbmMQGet.msgnode="ComIbmMQGet.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:com_mcb_common_Exception_Hadler_Common.subflow="com/mcb/common/Exception_Hadler_Common.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow"
+    xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="com/mcb/juiceMerchant/GetJuiceMerchantTill.msgflow" nsPrefix="com_mcb_juiceMerchant_GetJuiceMerchantTill.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.TIMECOUNT" name="TIMECOUNT" defaultValueLiteral="8">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EInt"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.OUTWARD_GATEWAY_Q" name="OUTWARD_GATEWAY_Q" defaultValueLiteral="PAYMENT.ROUTING.OUT">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.APPLICATION_IDENTIFIER" name="APPLICATION_IDENTIFIER" defaultValueLiteral="GET_JUICE_MERCHANT_TILL_V1">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.T24SYSTEM" name="T24SYSTEM" defaultValueLiteral="t24">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.SCHEMANAME" name="SCHEMANAME" defaultValueLiteral="acedb">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.DB_AUDIT_Q" name="DB_AUDIT_Q" defaultValueLiteral="DB_AUDIT_Q">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.TIMETYPE" name="TIMETYPE" defaultValueLiteral="HOUR">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eStructuralFeatures>
+    <eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.VERSION" name="VERSION" defaultValueLiteral="1.0">
+      <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EFloat"/>
+    </eStructuralFeatures>
+    <translation xmi:type="utility:TranslatableString" key="GetJuiceMerchantTill" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/GET_JUICE_MERCHANT_TILL_V1/icons/full/obj16/GetJuiceMerchantTill.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/GET_JUICE_MERCHANT_TILL_V1/icons/full/obj30/GetJuiceMerchantTill.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQGet.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="479,219" queueName="T24.DEV.OUT" connection="CLIENT" destinationQueueManagerName="T24_ACE.QM" queueManagerHostname="10.120.2.2" listenerPortNumber="61004" channelName="T24_ACE.SVRCONN" messageDomainProperty="XMLNSC" waitInterval="20000" getWithCorrelID="true">
+        <translation xmi:type="utility:ConstantString" string="T24_RESP_Q"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="8,213" queueName="GET.JUICE.MERCHANT.V1.IN" messageDomainProperty="JSON" transactionMode="no" identityType="username">
+        <translation xmi:type="utility:ConstantString" string="GET.JUICE.MERCHANT.V1.IN"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="371,215" queueName="T24.DEV.IN" connection="CLIENT" destinationQueueManagerName="T24_ACE.QM" queueManagerHostname="10.120.2.2" listenerPortNumber="61004" channelName="T24_ACE.SVRCONN">
+        <translation xmi:type="utility:ConstantString" string="T24_REQ_Q"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="654,142" destinationMode="list">
+        <translation xmi:type="utility:ConstantString" string="CUST.ROUTING.OUT"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="249,213" dataSource="ACEDB" computeExpression="esql://routine/com.mcb.juiceMerchant#GetJuiceMerchantTill_T24_REQUEST.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="T24_Request"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="558,221" computeExpression="esql://routine/com.mcb.juiceMerchant#GetJuiceMerchantTill_T24_RESPONSE.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="T24_Response"/>
+      </nodes>
+      <nodes xmi:type="com_mcb_common_Exception_Hadler_Common.subflow:FCMComposite_1" xmi:id="FCMComposite_1_8" location="324,343">
+        <translation xmi:type="utility:ConstantString" string="Exception_Hadler_Common"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFlowOrder.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="251,319">
+        <translation xmi:type="utility:ConstantString" string="Flow Order"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.noMessage" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in">
+        <bendPoints>205,-77,-222,-6</bendPoints>
+      </connections>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.first" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.second" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer>
+      <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.TIMECOUNT">
+        <propertyName xmi:type="utility:TranslatableString" key="Property.TIMECOUNT" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+        <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.OUTWARD_GATEWAY_Q">
+          <propertyName xmi:type="utility:TranslatableString" key="Property.OUTWARD_GATEWAY_Q" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+          <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.APPLICATION_IDENTIFIER">
+            <propertyName xmi:type="utility:TranslatableString" key="Property.APPLICATION_IDENTIFIER" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+            <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.T24SYSTEM">
+              <propertyName xmi:type="utility:TranslatableString" key="Property.T24SYSTEM" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+              <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.SCHEMANAME">
+                <propertyName xmi:type="utility:TranslatableString" key="Property.SCHEMANAME" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+                <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.DB_AUDIT_Q">
+                  <propertyName xmi:type="utility:TranslatableString" key="Property.DB_AUDIT_Q" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+                  <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.TIMETYPE">
+                    <propertyName xmi:type="utility:TranslatableString" key="Property.TIMETYPE" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+                    <propertyDescriptor groupName="Group.Basic" configurable="true" userDefined="true" describedAttribute="Property.VERSION">
+                      <propertyName xmi:type="utility:TranslatableString" key="Property.VERSION" bundleName="com/mcb/juiceMerchant/GetJuiceMerchantTill" pluginId="GET_JUICE_MERCHANT_TILL_V1"/>
+                    </propertyDescriptor>
+                  </propertyDescriptor>
+                </propertyDescriptor>
+              </propertyDescriptor>
+            </propertyDescriptor>
+          </propertyDescriptor>
+        </propertyDescriptor>
+      </propertyDescriptor>
+    </propertyOrganizer>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

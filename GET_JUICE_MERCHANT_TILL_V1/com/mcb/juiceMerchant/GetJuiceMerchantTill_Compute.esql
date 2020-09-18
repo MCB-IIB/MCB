@@ -1,0 +1,219 @@
+
+
+
+
+BROKER SCHEMA com.mcb.juiceMerchant
+PATH com.mcb.common,com.mcb.procedures,com.mcb.logging;
+
+DECLARE GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE SHARED ROW;
+DECLARE DB_AUDIT_Q,SCHEMANAME,T24SYSTEM,APPLICATION_IDENTIFIER,OUTWARD_GATEWAY_Q,TIMETYPE EXTERNAL CHARACTER '';
+
+DECLARE TIMECOUNT EXTERNAL INTEGER;
+DECLARE VERSION EXTERNAL DECIMAL;
+
+
+CREATE COMPUTE MODULE GetJuiceMerchantTill_T24_REQUEST
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		CALL T24_Request();
+		RETURN FALSE;
+	END;
+
+
+	CREATE PROCEDURE T24_Request() BEGIN
+
+		DECLARE ns1 NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';
+		DECLARE schemaLocation NAMESPACE 'http://www.temenos.com/T24/OFSML/130 ../../xsd/ofsml.xsd';
+		DECLARE ns2 NAMESPACE 'http://www.temenos.com/T24/OFSML/130';
+		declare inputChar,outputChar CHARACTER;
+		SET Environment.Variables.correlationId = InputRoot.MQMD.CorrelId;
+		SET Environment.Variables.messageId = InputRoot.MQMD.MsgId;
+		DECLARE protocolType CHARACTER InputRoot.MQRFH2.usr.ESB_ReplyProtocol;
+		DECLARE outRefer REFERENCE TO OutputRoot;
+		SET inputChar=CAST(ASBITSTREAM(InputRoot.JSON) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+		DECLARE requestTime TIMESTAMP InputRoot.Properties.CreationTime;
+		CALL GenarateDBLogMessage(cast(Environment.Variables.correlationId as CHARACTER),'',requestTime,'Info','Payment',protocolType,'GetJuiceMerchantTillV1','GET.JUICE.MERCHANT.V1.IN',inputChar,outRefer);
+
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+
+		PROPAGATE TO TERMINAL 'out1';
+		DECLARE providerCredentials ROW;
+		CALL getProviderDetails();
+		set providerCredentials.values[] = SELECT P.system, P.endPoint ,P.username, P.password from GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.values[] as P WHERE P.system = T24SYSTEM;
+
+
+		DECLARE inpref REFERENCE TO InputRoot.JSON.Data.Get_MerchantTill_Req;
+		SET Environment.MQMD = InputRoot.MQMD;
+		SET Environment.MQRFH2 = InputRoot.MQRFH2;
+		SET OutputRoot.MQMD.CorrelId= InputRoot.MQMD.CorrelId;
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration).(XMLNSC.Attribute)version = '1.0';
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration).(XMLNSC.Attribute)encoding = 'UTF-8';
+		SET OutputRoot.XMLNSC.ns2:T24.(XMLNSC.NamespaceDecl)xmlns:xsi = ns1;
+		SET OutputRoot.XMLNSC.ns2:T24.(XMLNSC.NamespaceDecl)"xsi:schemaLocation" = schemaLocation;
+		SET OutputRoot.XMLNSC.ns2:T24.(XMLNSC.NamespaceDecl)xmlns = ns2;
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:securityContext.ns2:company = 'MU0010001';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:securityContext.ns2:userName = providerCredentials.values[1].username; --'ESBUSR';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:securityContext.ns2:password = providerCredentials.values[1].password; --'ESBUSER123';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsStandardEnquiry.(XMLNSC.Attribute)name = 'E.GET.MERC.TILL.V1.MCB';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsStandardEnquiry.(XMLNSC.Attribute)responseType = 'STANDARD-OFSML';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsStandardEnquiry.ns2:selectionCriteria[1].(XMLNSC.Attribute)operand = 'EQ';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsStandardEnquiry.ns2:selectionCriteria[1].ns2:fieldName = 'CHANNEL.ID';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsStandardEnquiry.ns2:selectionCriteria[1].ns2:value = inpref.Requestor.ChannelId;
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsStandardEnquiry.ns2:selectionCriteria[2].(XMLNSC.Attribute)operand = 'EQ';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsStandardEnquiry.ns2:selectionCriteria[2].ns2:fieldName = 'MOBILE.NUMBER';
+		SET OutputRoot.XMLNSC.ns2:T24.ns2:serviceRequest.ns2:ofsStandardEnquiry.ns2:selectionCriteria[2].ns2:value = inpref.Mobile_Number;
+		set outputChar = cast(ASBITSTREAM(OutputRoot.XMLNSC) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+		SET Environment.outData = OutputRoot;
+		SET OutputRoot.XMLNSC = NULL;
+
+
+		CALL GenarateDBLogMessage(cast(Environment.Variables.correlationId as CHARACTER),'',CURRENT_TIMESTAMP,'Info','Payment',Environment.replyProtocol,'GetJuiceMerchantV1','T24_REQUEST_Q',outputChar,outRefer);
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+		PROPAGATE TO TERMINAL 'out1';
+		SET OutputRoot = Environment.outData;
+		SET Environment.XMLNSC =NULL;
+		PROPAGATE TO TERMINAL 'out' ;
+
+
+	END;
+END MODULE;
+
+CREATE PROCEDURE getProviderDetails( )
+BEGIN
+	IF EXISTS(GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.values[]) AND EXTRACT(DAY FROM GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.timeData) = EXTRACT(DAY FROM CURRENT_TIMESTAMP) THEN
+		CASE TIMETYPE
+
+
+		WHEN 'HOUR' THEN
+			IF EXTRACT(HOUR FROM CURRENT_TIMESTAMP) - EXTRACT(HOUR FROM GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.timeData)>TIMECOUNT THEN
+				CALL RetrieveServiceProviderCredentials(COALESCE(APPLICATION_IDENTIFIER,''),VERSION,FALSE,GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.values[]) IN Database.SCHEMANAME;
+				SET GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.timeData = CURRENT_TIMESTAMP;
+			END IF;
+		WHEN 'MINUTE' THEN
+			IF EXTRACT(MINUTE FROM CURRENT_TIMESTAMP) - EXTRACT(MINUTE FROM GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.timeData) > TIMECOUNT THEN
+				CALL RetrieveServiceProviderCredentials(COALESCE(APPLICATION_IDENTIFIER,''),VERSION,FALSE,GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.values[]) IN Database.SCHEMANAME;
+				SET GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.timeData = CURRENT_TIMESTAMP;
+			END IF;
+		END CASE;
+	ELSE
+		CALL RetrieveServiceProviderCredentials(COALESCE(APPLICATION_IDENTIFIER,''),VERSION,FALSE,GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.values[]) IN Database.SCHEMANAME;
+		SET GET_JUICE_MERCHANT_TILL_V1_PROV_CACHE.Data.timeData = CURRENT_TIMESTAMP;
+	END IF;
+END;
+
+
+CREATE COMPUTE MODULE GetJuiceMerchantTill_T24_RESPONSE
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		CALL T24_Response();
+		RETURN FALSE;
+	END;
+	CREATE PROCEDURE T24_Response( )
+	BEGIN
+		DECLARE ns1 NAMESPACE 'http://www.temenos.com/T24/OFSML/130';
+
+		DECLARE inputChar,outputChar,DATA CHARACTER;
+		DECLARE outRefer REFERENCE TO OutputRoot;
+		DECLARE protocolType CHARACTER InputRoot.MQRFH2.usr.ESB_ReplyProtocol;
+		DECLARE msgRef REFERENCE TO InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsStandardEnquiry.ns1:enquiryRecord;
+		CASE
+			--Handling exception
+		WHEN EXISTS(InputExceptionList.*[]) THEN
+			IF CONTAINS(Environment.variable.exceptiondesc,'ParserException') THEN
+				SET outputChar = 'Invalid input request data';
+			ELSE
+				SET outputChar=CAST(ASBITSTREAM(InputRoot.JSON) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+			END IF;
+
+			CALL GenarateDBLogMessage(cast(Environment.Variables.correlationId as CHARACTER),'',CURRENT_TIMESTAMP,'Error','Customer',protocolType,'GetJuiceMerchantV1','ResBuild',outputChar,outRefer);
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+			PROPAGATE TO TERMINAL 'out';
+			CALL GenarateDBLogMessage(cast(Environment.Variables.correlationId as CHARACTER),'',CURRENT_TIMESTAMP,'Error','Customer',protocolType,'GetJuiceMerchantV1','ResBuild',Environment.variable.exceptiondesc,outRefer);
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+			PROPAGATE TO TERMINAL 'out';
+			IF EXISTS(Environment.MQRFH2[]) THEN
+				SET OutputRoot.MQMD = Environment.MQMD;
+				SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+			ELSE
+				SET OutputRoot.MQMD = InputRoot.MQMD;
+				SET OutputRoot.MQRFH2 = InputRoot.MQRFH2;
+			END IF;
+			SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '-100';
+			SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = COALESCE(Environment.variable.exceptiondesc,'Internal Error Occured');
+			SET OutputRoot.JSON.Data.ResponseData.Exception.Code ='';
+			SET OutputRoot.JSON.Data.ResponseData.Exception.Msg = '';
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = OUTWARD_GATEWAY_Q;
+			PROPAGATE TO TERMINAL 'out' DELETE NONE;
+		WHEN FIELDNAME(InputBody) = 'XMLNSC' THEN
+
+			IF FIELDNAME(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.[1])= 'ofsFault' THEN
+				SET inputChar=CAST(ASBITSTREAM(InputRoot.XMLNSC) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+				CALL GenarateDBLogMessage(cast(Environment.Variables.correlationId as CHARACTER),'',CURRENT_TIMESTAMP,'Info','Payment',protocolType,'GetJuiceMerchantV1','T24_Response_Q',inputChar,outRefer);
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+				PROPAGATE TO TERMINAL 'out1';
+				DECLARE faultRef REFERENCE TO InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsFault;
+				IF EXISTS(Environment.MQRFH2[]) THEN
+					SET OutputRoot.MQMD = Environment.MQMD;
+					SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+				ELSE
+					SET OutputRoot.MQMD = InputRoot.MQMD;
+					SET OutputRoot.MQRFH2 = InputRoot.MQRFH2;
+				END IF;
+				SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '0';
+				SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = '';
+				SET OutputRoot.JSON.Data.ResponseData.Exception.Code =COALESCE(faultRef.ns1:ofsFaultCode,'');
+				SET OutputRoot.JSON.Data.ResponseData.Exception.Msg = COALESCE(faultRef.ns1:ofsFaultMessage,'');
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = OUTWARD_GATEWAY_Q;
+				PROPAGATE TO TERMINAL 'out' DELETE NONE;
+			ELSEIF EXISTS(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsStandardEnquiry[]) THEN
+				SET inputChar=CAST(ASBITSTREAM(InputRoot.XMLNSC) AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId ENCODING InputRoot.Properties.Encoding);
+				CALL GenarateDBLogMessage(cast(Environment.Variables.correlationId as CHARACTER),'',CURRENT_TIMESTAMP,'Info','Customer',protocolType,'GetJuiceMerchantV1','T24_Response_Q',inputChar,outRefer);
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+				PROPAGATE TO TERMINAL 'out';
+				IF EXISTS(Environment.MQRFH2[]) THEN
+					SET OutputRoot.MQMD = Environment.MQMD;
+					SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+				ELSE
+					SET OutputRoot.MQMD = InputRoot.MQMD;
+					SET OutputRoot.MQRFH2 = InputRoot.MQRFH2;
+				END IF;
+				SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '0';
+				SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = '';
+
+				SET OutputRoot.JSON.Data.ResponseData.Exception.Code = COALESCE(msgRef.ns1:column[1],COALESCE(msgRef.ns1:column[3],''));
+				SET OutputRoot.JSON.Data.ResponseData.Exception.Msg = COALESCE(msgRef.ns1:column[2],COALESCE(msgRef.ns1:column[4],''));
+				SET OutputRoot.JSON.Data.ResponseData.Get_MerchantTill_Resp.Till_Info.Trade_Name = COALESCE(msgRef.ns1:column[5],'');
+				SET OutputRoot.JSON.Data.ResponseData.Get_MerchantTill_Resp.Till_Info.Trade_ID = COALESCE(msgRef.ns1:column[6],'');
+				SET OutputRoot.JSON.Data.ResponseData.Get_MerchantTill_Resp.Till_Info.MCC = COALESCE(msgRef.ns1:column[7],'');
+				SET OutputRoot.JSON.Data.ResponseData.Get_MerchantTill_Resp.Till_Info.Merchant_Id = COALESCE(msgRef.ns1:column[8],'');
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = OUTWARD_GATEWAY_Q;
+				PROPAGATE TO TERMINAL 'out' DELETE NONE;
+			ELSEIF EXISTS(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionFailed[]) THEN
+
+				SET OutputRoot.MQMD = Environment.MQMD;
+				SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+				SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '0';
+				SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = '';
+				SET OutputRoot.JSON.Data.ResponseData.Exception.Code = '-1';
+				SET OutputRoot.JSON.Data.ResponseData.Exception.Msg = COALESCE(InputRoot.XMLNSC.ns1:T24.ns1:serviceResponse.ns1:ofsTransactionFailed.ns1:error,COALESCE(InputRoot.XMLNSC.ns1:T24.NS1:serviceResponse.ns1:ofsTransactionFailed.ns1:errorDescription,'T24 Failure Response'));
+				SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = OUTWARD_GATEWAY_Q;
+				PROPAGATE TO TERMINAL 'out' DELETE NONE;
+			END IF;
+		ELSE
+
+			SET OutputRoot.MQMD = Environment.MQMD;
+			SET OutputRoot.MQRFH2 = Environment.MQRFH2;
+			SET OutputRoot.JSON.Data.ResponseStatus.ReturnCode = '101';
+			SET OutputRoot.JSON.Data.ResponseStatus.ErrorMsg = 'TimeOut from Backend';
+			SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = OUTWARD_GATEWAY_Q;
+			PROPAGATE TO TERMINAL 'out' DELETE NONE;
+		END CASE;
+		SET outputChar=CAST(ASBITSTREAM(OutputRoot.JSON) AS CHARACTER CCSID 1208 ENCODING 546);
+		SET OutputRoot=NULL;
+		CALL GenarateDBLogMessage(cast(Environment.Variables.correlationId as CHARACTER),'',CURRENT_TIMESTAMP,'Info','Payment',protocolType,'GetJuiceMerchantV1','PAYMENT.ROUTING.OUT',outputChar,outRefer);
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData[1].queueName = DB_AUDIT_Q;
+		PROPAGATE TO TERMINAL 'out';
+	END;
+END MODULE;
